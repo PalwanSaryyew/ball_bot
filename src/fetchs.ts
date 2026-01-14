@@ -50,7 +50,7 @@ export async function loginAndGetToken(
       }
 
       if (!csrfToken || !phpSessionId) {
-         console.error("CSRF token veya Session ID bulunamadı.");
+         console.error("No CSRF token or Session ID was found.");
          return null;
       }
 
@@ -77,7 +77,7 @@ export async function loginAndGetToken(
 
       return phpSessionId;
    } catch (error) {
-      console.error("Giriş işlemi başarısız:", error);
+      console.error("Login failed:", error);
       return null;
    }
 }
@@ -117,7 +117,7 @@ export async function getBalance(selectedNumber: string): Promise<string> {
    const numberInfo = numbersData[selectedNumber];
 
    if (!numberInfo || !numberInfo.token || !numberInfo.pass) {
-      return `'${selectedNumber}' için bilgi bulunamadı veya eksik.`;
+      return `'No information was found or is missing for '${selectedNumber}'.`;
    }
 
    let { token, pass } = numberInfo;
@@ -126,7 +126,7 @@ export async function getBalance(selectedNumber: string): Promise<string> {
    let balance = await fetchBalanceWithToken(token);
 
    if (balance) {
-      return `Güncel Bakiye: ${balance}`;
+      return `Current Balance: ${balance}`;
    }
 
    // 2. Attempt: Token is likely invalid, try to log in and get a new one
@@ -136,7 +136,7 @@ export async function getBalance(selectedNumber: string): Promise<string> {
    const newToken = await loginAndGetToken(selectedNumber, pass);
 
    if (!newToken) {
-      return "Yeni token alınamadı. Giriş bilgileri yanlış olabilir.";
+      return "New tokens could not be obtained. Login information may be incorrect.";
    }
 
    // Update numbers.json with the new token
@@ -148,8 +148,8 @@ export async function getBalance(selectedNumber: string): Promise<string> {
    balance = await fetchBalanceWithToken(newToken);
 
    if (balance) {
-      return `Güncel Bakiye (yeni token ile): ${balance}`;
+      return `Current Balance (with new token): ${balance}`;
    } else {
-      return "Yeni token ile de bakiye alınamadı. Lütfen daha sonra tekrar deneyin.";
+      return "The balance could not be withdrawn even with the new token. Please try again later.";
    }
 }
