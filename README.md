@@ -12,13 +12,13 @@ This is a Telegram bot built with TypeScript and `grammy` that allows you to che
 ## Project Structure
 
 ```
-tmcell/
+project/
 ├── data/
-│   └── numbers.json.sample   # Sample for numbers and credentials
+│   └── numbers.json          # Data for numbers and credentials
 ├── src/
 │   ├── bot.ts                # Main bot logic and Telegram interaction
 │   └── fetchs.ts             # Handles scraping and fetching data from the website
-├── .env.sample               # Sample for environment variables
+├── .env                      # Environment variables
 ├── package.json
 └── tsconfig.json
 ```
