@@ -112,44 +112,84 @@ async function fetchBalanceWithToken(token: string): Promise<string | null> {
    }
 }
 
+// (Dosyanın üst kısımlarındaki importlar ve diğer fonksiyonlar aynı kalacak)
+
+// Bakiyenin içinden sadece sayıları almak için yardımcı fonksiyon (Örn: "15.40 manat" -> 15.40)
+function parseBalance(balanceStr: string): number {
+   const match = balanceStr.match(/[\d,\.]+/);
+   if (match) {
+      // Virgül varsa noktaya çevirip ondalıklı sayıya dönüştürüyoruz
+      return parseFloat(match[0].replace(',', '.'));
+   }
+   return 0;
+}
+
 export async function getBalance(selectedNumber: string): Promise<string> {
    const numbersData = readNumbersData();
-   const numberInfo = numbersData[selectedNumber];
+   const numberIndex = numbersData.findIndex((item: any) => item.number === selectedNumber);
 
-   if (!numberInfo || !numberInfo.token || !numberInfo.pass) {
+   if (numberIndex === -1) {
       return `'No information was found or is missing for '${selectedNumber}'.`;
    }
 
-   let { token, pass } = numberInfo;
+   const numberInfo = numbersData[numberIndex];
 
-   // 1. Attempt: Fetch balance with the current token
+   if (!numberInfo.token || !numberInfo.pass) {
+      return `Missing pass or token for '${selectedNumber}'.`;
+   }
+
+   // JSON'dan token, pass ve varsa bir önceki bakiyeyi (lastBalance) alıyoruz
+   let { token, pass, lastBalance } = numberInfo;
+
+   // 1. Aşama: Mevcut token ile bakiyeyi çekmeyi dene
    let balance = await fetchBalanceWithToken(token);
 
-   if (balance) {
-      return `Current Balance: ${balance}`;
+   // Eğer bakiye çekilemediyse (token patlamışsa) yeni token al
+   if (!balance) {
+      console.log(`Token for ${selectedNumber} seems invalid. Attempting to get a new one.`);
+      const newToken = await loginAndGetToken(selectedNumber, pass);
+
+      if (!newToken) {
+         return "New tokens could not be obtained. Login information may be incorrect.";
+      }
+
+      // Yeni token'ı JSON'a kaydet
+      numbersData[numberIndex].token = newToken;
+      writeNumbersData(numbersData);
+      console.log(`New token for ${selectedNumber} saved.`);
+
+      // Yeni token ile tekrar dene
+      balance = await fetchBalanceWithToken(newToken);
    }
 
-   // 2. Attempt: Token is likely invalid, try to log in and get a new one
-   console.log(
-      `Token for ${selectedNumber} seems invalid. Attempting to get a new one.`
-   );
-   const newToken = await loginAndGetToken(selectedNumber, pass);
-
-   if (!newToken) {
-      return "New tokens could not be obtained. Login information may be incorrect.";
-   }
-
-   // Update numbers.json with the new token
-   numbersData[selectedNumber].token = newToken;
-   writeNumbersData(numbersData);
-   console.log(`New token for ${selectedNumber} saved.`);
-
-   // 3. Attempt: Retry fetching balance with the new token
-   balance = await fetchBalanceWithToken(newToken);
-
+   // Bakiye başarıyla çekildiyse fark hesaplaması yap
    if (balance) {
-      return `Current Balance (with new token): ${balance}`;
+      let diffMessage = "";
+
+      // Eğer sistemde daha önceden kaydedilmiş bir bakiye varsa karşılaştır
+      if (lastBalance) {
+         const currentNum = parseBalance(balance);
+         const lastNum = parseBalance(lastBalance);
+         const diff = currentNum - lastNum;
+
+         if (diff > 0) {
+            diffMessage = `\n📈 Tapawut: +${diff.toFixed(2)} manat`;
+         } else if (diff < 0) {
+            diffMessage = `\n📉 Tapawut: ${diff.toFixed(2)} manat`; // diff zaten eksi değerde olacak
+         } else {
+            diffMessage = `\n➖ Tapawut: Üýtgeşme ýok`;
+         }
+      } else {
+         diffMessage = `\n(Ilkinji barlag, öňki balans ýazgysy ýok)`;
+      }
+
+      // Bir sonraki sorgulama için şu anki bakiyeyi JSON dosyasına kaydet
+      numbersData[numberIndex].lastBalance = balance;
+      writeNumbersData(numbersData);
+
+      // Sonucu kullanıcıya gönder
+      return `Häzirki balans: ${balance}${diffMessage}`;
    } else {
-      return "The balance could not be withdrawn even with the new token. Please try again later.";
+      return "Balans maglumatlaryny ulgamdan alyp bolmady. Soňrak gaýtadan synanyşyň.";
    }
 }

@@ -8,8 +8,12 @@ dotenv.config();
 
 // Load and parse the numbers data
 const numbersPath = path.join(__dirname, "..", "data", "numbers.json");
-const numbersData = JSON.parse(fs.readFileSync(numbersPath, "utf-8"));
-const numberList = Object.keys(numbersData);
+
+// numbersData artık doğrudan bir dizi: [ {number: "...", pass: "...", token: "..." }, ... ]
+const numbersData: any[] = JSON.parse(fs.readFileSync(numbersPath, "utf-8"));
+
+// Sadece 'number' değerlerini bir diziye çıkartıyoruz
+const validNumbers = numbersData.map((item) => item.number);
 
 const token = process.env.BOT_TOKEN;
 const allowedUserIdsString = process.env.ALLOWED_USER_IDS;
@@ -19,7 +23,7 @@ if (!token) {
 }
 if (!allowedUserIdsString) {
    throw new Error(
-      "ALLOWED_USER_IDS is not defined in the environment variables."
+      "ALLOWED_USER_IDS is not defined in the environment variables.",
    );
 }
 
@@ -42,9 +46,21 @@ bot.use(async (ctx, next) => {
 });
 
 // Create a dynamic keyboard
+// Create a dynamic keyboard
 const numberKeyboard = new Keyboard().resized();
-numberList.forEach((num, index) => {
-   numberKeyboard.text(num);
+
+validNumbers.forEach((num, index) => {
+   // Önce düğmeyi ekliyoruz
+   numberKeyboard.text(num); 
+
+   // Eğer numara belirlediğimiz numaralardan biriyse rengini değiştiriyoruz
+   if (num === "62545254") {
+      numberKeyboard.style("danger");  // Düğmeyi kırmızı yapar
+   } else if (num === "63483220") {
+      numberKeyboard.style("success"); // Düğmeyi yeşil yapar
+   }
+   // Diğer numaralar için hiçbir şey yapmıyoruz, Telegram'ın standart renginde (şeffaf/gri) kalıyorlar.
+
    // Add a new row after every 2 buttons
    if ((index + 1) % 2 === 0) {
       numberKeyboard.row();
@@ -61,13 +77,18 @@ bot.command("start", (ctx) => {
 bot.on("message:text", async (ctx) => {
    const selectedNumber = ctx.message.text;
 
-   // Check if the received message is one of the numbers from our list
-   if (numberList.includes(selectedNumber)) {
+   // Mesajın geçerli numaralardan biri olup olmadığını kontrol et
+   if (validNumbers.includes(selectedNumber)) {
+      // bot.ts içindeki ilgili kısım:
+
       await ctx.reply(`Checking the balance for ${selectedNumber}...`);
+
+      // SADECE NUMARAYI GÖNDERİYORUZ
       const balance = await getBalance(selectedNumber);
+
       await ctx.reply(balance);
    } else {
-      // Echo other messages that are not commands
+      // Sadece komut olmayan mesajlara yanıt ver
       if (!selectedNumber.startsWith("/")) {
          ctx.reply(`You said: ${selectedNumber}`);
       }
